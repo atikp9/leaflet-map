@@ -37,6 +37,9 @@
         <i class="fa fa-times" tabindex="0" aria-hidden="true" id="clearSearch"></i>
       </div>
     </div>
+    <div id="error-msg">
+      <span class="text">Id not found</span>
+    </div>
   </div>
   </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet-src.min.js"
@@ -83,17 +86,20 @@
         layer.bindTooltip('<span>' + feature.properties?.id + '</span>', {
           permanent: true, direction: "center"
         }).openTooltip();
-        layer.bindPopup('<h3>Traffice Cell:' + feature.properties?.id + '</h3><p><b>City:</b>&nbsp' + feature.properties?._Gemeinden + '<br/><b>Area (Sq. Km)</b>&nbsp' + feature.properties?.Flaeche + '</p>')
+        layer.bindPopup('<h3>Traffice Cell:&nbsp' + feature.properties?.id + '</h3><p><b>City:</b>&nbsp' + feature.properties?._Gemeinden + '<br/><b>Area (Sq. Km):</b>&nbsp' + feature.properties?.Flaeche + '</p>')
       }
 
       //search map
-      var searchInput = document.getElementById('searchInput');
+      var searchInput = document.querySelector('#searchInput');
       var selectedFeatureLayer = L.geoJSON().addTo(map);
       var clearSearch = document.querySelector('#clearSearch');
       var searchTowerCell = document.querySelector('#searchTowerCell');
+      var errorMessage = document.querySelector('#error-msg');
+      var errorMessageText = document.querySelector('#error-msg .text');
 
       // function to reset style
       function resetStyle() {
+        errorMessage.style.display = 'none';
         geojsonLayer.eachLayer(function (layer) {
           geojsonLayer.resetStyle(layer);
         });
@@ -110,7 +116,11 @@
         }
 
         if (e.keyCode == 13) {
-          var towerIds = searchTerm.split(',');
+          //convert user input into unique element id's Array
+          var towerIds = searchTerm.split(',').filter(function(id, index, arr){
+            return arr.indexOf(id) === index
+          });
+          var selectedIds = [];
           resetStyle();
           // Filter and style the features that match the search term
           geojsonLayer.eachLayer(function (layer) {
@@ -128,14 +138,34 @@
                   selectedFeatureLayer.getBounds(),
                   { maxZoom: 11 }
                 );
+
+                selectedIds.push(towerId)
               }
             });
           });
           // Bind a popup to the selectedFeatureLayer with information
           selectedFeatureLayer.eachLayer(function (selectedLayer) {
+            var towerId = selectedLayer.feature.properties?.id ;
+            var city = selectedLayer.feature.properties?._Gemeinden;
+            var area = selectedLayer.feature.properties?.Flaeche;
+            
             selectedLayer
-              .bindPopup('<h3>Traffice Cell:' + selectedLayer.feature.properties?.id + '</h3><p><b>City:</b>&nbsp' + selectedLayer.feature.properties?._Gemeinden + '<br/><b>Area (Sq. Km)</b>&nbsp' + selectedLayer.feature.properties?.Flaeche + '</p>')
+              .bindPopup('<h3>Traffice Cell:&nbsp' + towerId + '</h3><p><b>City:</b>&nbsp' + city + '<br/><b>Area (Sq. Km):</b>&nbsp' + area + '</p>')
           });
+          
+          //Check for ids those are not in geojson
+          var ids = towerIds.filter(function(id){
+            return !selectedIds.includes(id)
+          })
+          
+          if(ids.length > 0) {
+            if(ids.length == 1) {
+              errorMessageText.innerHTML = '*traffic cell ' + ids[0] + ' not found';
+            } else {
+              errorMessageText.innerHTML = '*traffic cells ' + ids.join(',') + ' not found';
+            }
+            errorMessage.style.display = 'flex';
+          }
         }
       });
 
@@ -191,10 +221,11 @@
     #searchInput {
       z-index: 999;
       height: 25px;
-      border-radius: 4px;
-      width: 190px;
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
       padding: 3px 8px;
       border: 2px solid #ccc;
+      padding-right: 60px;
     }
 
     #searchInput:focus {
@@ -223,11 +254,27 @@
       border-top-right-radius: 4px;
       border-bottom-right-radius: 4px;
     }
-
     .icon-wrapper .fa {
       z-index: 999;
       padding: 0px 4px;
       cursor: pointer;
+    }
+    #error-msg {
+      position: absolute;
+      background: #ffff;
+      width: 100%;
+      border: 1px solid #cccc;
+      border-radius: 4px;
+      display: none;
+      top: 34px;
+      font-size: 14px;
+      align-items: center;
+    }
+    #error-msg .text {
+      padding: 4px 8px;
+      color: red;
+      display: inline-block;
+      font-weight: 600;
     }
   </style>
 </body>
