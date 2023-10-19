@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+  html, body {
+      background-color: #ffffff;
+  }
+</style>
+<style>
+  #map {
+    width: 1805px;
+    height: 840px;
+  }
+</style>
+    <title></title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <div class="search-wrapper">
+          <input type="text" id="searchInput" placeholder="Search...">
+          <!-- <i class="fa fa-search" aria-hidden="true"></i>
+          <i class="fa fa-times" aria-hidden="true"></i> -->
+        </div>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet-src.min.js" integrity="sha512-3/WyQrhTdqSVmSifQS62akgtNBhZha2lS44TnoN9Jk3J01FvsKK4suVmz6t5FtccGb5iJw58GoFhBjPE5EPc8Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="./cities//berlin.js"></script>
+
+        <script>
+          function loadLeafletCss() {
+            // Create a link element for Leaflet CSS
+            var leafletCssLink = document.createElement('link');
+            leafletCssLink.rel = 'stylesheet';
+            leafletCssLink.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
+         
+            // Append the link element to the head of the document
+            document.head.appendChild(leafletCssLink);
+           }
+         
+             
+           loadLeafletCss();
+           window.addEventListener('load', function() {
+           var mapStyle = {
+              "color": "rgba(226,0,116,1.0)",
+              "weight": 1,
+              "opacity": 0.65
+           };
+         
+           var map = L.map('map', {
+             center: [52.520008, 13.404954],
+             zoom: 10
+           });
+         
+           L.tileLayer('https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+             maxZoom: 19,
+             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+           }).addTo(map);
+         
+           const geojsonLayer = L.geoJSON(city, {
+             style: mapStyle,
+             onEachFeature: onEachFeature
+           }).addTo(map);
+         
+           function onEachFeature(feature, layer) {
+             layer.bindTooltip('<span>'+feature.properties?.id+'</span>',{
+              permanent: true, direction:"center"
+             }).openTooltip();
+             layer.bindPopup('<h3>Tower ID:'+feature.properties?.id+'</h3><p><b>City:</b>&nbsp'+feature.properties?._Gemeinden+'<br/><b>Flaeche:</b>&nbsp'+feature.properties?.Flaeche+'</p>')
+           }
+          //search map
+          // Get a reference to the search input element
+          var searchInput = document.getElementById('searchInput');
+          var selectedFeatureLayer = L.geoJSON().addTo(map);
+
+          // function to reset style
+          function resetStyle() {
+            geojsonLayer.eachLayer(function (layer) {
+                geojsonLayer.resetStyle(layer); 
+            });
+            selectedFeatureLayer.clearLayers();
+          }
+          
+          // Add an event listener to the input element to trigger the search
+          searchInput.addEventListener('keydown', function (e) {
+            var searchTerm = searchInput.value.toLowerCase();
+            // return
+            if(searchTerm.length === 0) {
+              resetStyle();
+              return;
+            }
+
+            if(e.keyCode == 13) {
+              var towerIds = searchTerm.split(',');
+              resetStyle();
+              // Filter and style the features that match the search term
+              geojsonLayer.eachLayer(function (layer) {
+                towerIds.forEach(function(towerId){
+                  if (layer.feature.properties.id.trim().toLowerCase() === towerId) {
+                    selectedFeatureLayer.addData(layer.toGeoJSON());
+                    selectedFeatureLayer.setStyle({
+                      "fillColor": 'red',
+                      "fillOpacity": 0.7,
+                      "color": "rgba(226,0,116,1.0)",
+                      "weight": 2,
+                    });
+                    //set zoom
+                    map.fitBounds(
+                      selectedFeatureLayer.getBounds(),
+                      { maxZoom: 11 }
+                    );
+                  } 
+                });
+              }); 
+               // Bind a popup to the selectedFeatureLayer with additional information
+              selectedFeatureLayer.eachLayer(function (selectedLayer) {
+                selectedLayer
+                .bindPopup('<h3>Tower ID:'+selectedLayer.feature.properties?.id+'</h3><p><b>City:</b>&nbsp'+selectedLayer.feature.properties?._Gemeinden+'<br/><b>Flaeche:</b>&nbsp'+selectedLayer.feature.properties?.Flaeche+'</p>')
+              });          
+            }
+          });
+
+         })
+         </script>
+        <style>
+          .leaflet-tooltip {
+            position: absolute;
+            padding: 6px;
+            background-color: transparent !important;
+            border: none !important;
+            color: #222;
+            white-space: nowrap;
+            box-shadow: none !important;
+            font-weight: 400 !important;
+          }
+          .search-wrapper {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+
+          #searchInput {
+            z-index: 999;
+            height: 25px;
+            border-radius: 4px;
+            width: 185px;
+            padding: 3px 8px;
+            border: 2px solid #ccc;
+          }
+          #searchInput:focus {
+            border: 1px solid rgba(226,0,116,1.0);
+          }
+          #searchInput:focus-visible {
+            outline: none;
+          }
+          .search-wrapper .fa{
+            position: relative;
+            right: 48px;
+            z-index: 9999;
+            padding: 0px 4px;
+            cursor: pointer;
+            color: rgba(226,0,116,1.0);
+          }
+        </style>
+    </body>
+</html>
