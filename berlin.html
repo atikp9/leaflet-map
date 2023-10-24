@@ -45,7 +45,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet-src.min.js"
     integrity="sha512-3/WyQrhTdqSVmSifQS62akgtNBhZha2lS44TnoN9Jk3J01FvsKK4suVmz6t5FtccGb5iJw58GoFhBjPE5EPc8Q=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="./cities//berlin.js"></script>
+  <script src="./cities/berlin.js"></script>
+  <script src="./cities/ags5.js"></script>
+  <script src="./cities/ags8.js"></script>
 
   <script>
     //load leaflet css
@@ -76,17 +78,16 @@
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       }).addTo(map);
-
-      const geojsonLayer = L.geoJSON(city, {
+      const geojsonLayer = L.geoJSON(ags5, {
         style: mapStyle,
         onEachFeature: onEachFeature
       }).addTo(map);
 
       function onEachFeature(feature, layer) {
-        layer.bindTooltip('<span>' + feature.properties?.id + '</span>', {
+        layer.bindTooltip('<span>' + feature.properties?.zone_id + '</span>', {
           permanent: true, direction: "center"
         }).openTooltip();
-        layer.bindPopup('<h3>Traffice Cell:&nbsp' + feature.properties?.id + '</h3><p><b>City:</b>&nbsp' + feature.properties?._Gemeinden + '<br/><b>Area (Sq. Km):</b>&nbsp' + feature.properties?.Flaeche + '</p>')
+        layer.bindPopup('<h3>Traffice Cell:&nbsp' + feature.properties?.zone_id + '</h3><p><b>City:</b>&nbsp' + feature.properties?.population + '<br/><b>Area (Sq. Km):</b>&nbsp' + feature.properties?.Flaeche + '</p>')
       }
 
       //search map

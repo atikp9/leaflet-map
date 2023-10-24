@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="./cities/berlin.js"></script>
+  <script src="./cities/dresden.js"></script>
+  <script src="./cities/frankfurt.js"></script>
+  <script src="./cities/hamburg.js"></script>
+  <script src="./cities/koln.js"></script>
+  <script src="./cities/leipzig.js"></script>
+  <script src="./cities/munchen.js"></script>
+  <script src="./cities/ags5.js"></script>
+  <script src="./cities/ags8.js"></script>
+  <style>
+    html,
+    body {
+      background-color: #ffffff;
+    }
+  </style>
+  <style>
+    #map {
+      width: 1805px;
+      height: 840px;
+    }
+  </style>
+  <title></title>
+</head>
+
+<body>
+  <div id="map">
+  </div>
+  <div class="search-container">
+    <div class="search-wrapper">
+      <input type="text" id="searchInput" placeholder="Search...">
+      <div class="icon-wrapper">
+        <i class="fa fa-search" tabindex="0" aria-hidden="true" id="searchTowerCell"></i>
+        <i class="fa fa-times" tabindex="0" aria-hidden="true" id="clearSearch"></i>
+      </div>
+    </div>
+    <div id="error-msg">
+      <span class="text">Id not found</span>
+    </div>
+    <!-- Dropdown Resolutions -->
+    <div class="resolution-select">
+      <div class="select-selected-resolution">Select an option</div>
+      <i class="fa-solid fa-chevron-down arrow-icn"></i>
+      <div class="select-items select-hide">
+        <div class="select-item" data-value="tcid">TCID</div>
+        <div class="select-item" data-value="ags5">AGS5</div>
+        <div class="select-item" data-value="ags8">AGS8</div>
+      </div>
+    </div>
+    <!-- Dropdown Cities -->
+    <div class="custom-select-city">
+      <div class="select-selected-city">Select an option</div>
+      <i class="fa-solid fa-chevron-down arrow-icn"></i>
+      <div class="select-items select-hide">
+        <div class="select-item" data-value="berlin">Berlin</div>
+        <div class="select-item" data-value="dresden">Dresden</div>
+        <div class="select-item" data-value="frankfurt">Frankfurt</div>
+        <div class="select-item" data-value="hamburg">Hamburg</div>
+        <div class="select-item" data-value="koln">Köln</div>
+        <div class="select-item" data-value="leipzig">Leipzig</div>
+        <div class="select-item" data-value="munchen">München</div>
+      </div>
+    </div>
+  </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet-src.min.js"
+    integrity="sha512-3/WyQrhTdqSVmSifQS62akgtNBhZha2lS44TnoN9Jk3J01FvsKK4suVmz6t5FtccGb5iJw58GoFhBjPE5EPc8Q=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    //load leaflet css
+    function loadLeafletCss() {
+      var leafletCssLink = document.createElement('link');
+      leafletCssLink.rel = 'stylesheet';
+      leafletCssLink.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
+
+      document.head.appendChild(leafletCssLink);
+    }
+
+    loadLeafletCss();
+
+    //setup map related options
+    function loadMap() {
+      return {
+        cities: {
+          berlin: [52.520008, 13.404954],
+          dresden: [51.050407, 13.737262],
+          frankfurt: [50.1215, 8.7506],
+          hamburg: [53.5488, 9.9872],
+          koln: [50.9375, 6.9603],
+          leipzig: [51.3397, 12.3731],
+          munchen: [48.1351, 11.5820]
+        },
+        selectedCity: 'berlin',
+        baseLayer: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+        map: null,
+        isTCids: true,
+        isAGS5: false,
+        isAGS8: false,
+        geojsonLayer: null,
+        mapStyle: {
+          "color": "rgba(226,0,116,1.0)",
+          "weight": 1,
+          "opacity": 0.65
+        },
+        defaultZoom: 11,
+        initMap: function () {
+          this.map = L.map('map', { zoom: this.defaultZoom });
+          this.setAttribution();
+          this.geojsonLayer = L.geoJSON(null, {
+            style: this.mapStyle,
+            onEachFeature: this.onEachFeature
+          }).addTo(this.map);
+          this.setView();
+
+          //check zoom
+          if (this.isTCids) {
+            this.map.on('zoomend', this.setDynamicFontSize.bind(this));
+            this.setDynamicFontSize(this);
+          }
+        },
+        setAttribution: function () {
+          L.tileLayer(this.baseLayer, {
+            maxZoom: this.maxZoom,
+            attribution: this.attribution
+          }).addTo(this.map);
+        },
+        onEachFeature: function (feature, layer) {
+          if (!feature) {
+            return;
+          }
+          //bind tcids
+          if (feature.properties && feature.properties._Gemeinden) {
+            console.log('called tc')
+            layer.bindTooltip('<span>' + feature.properties?.id + '</span>', {
+              permanent: true, direction: "center",
+            }).openTooltip();
+
+            layer.bindPopup('<h3>Traffice Cell:&nbsp' + feature.properties?.id + '</h3><p><b>City:</b>&nbsp' + feature.properties?._Gemeinden + '<br/><b>Area (Sq. Km):</b>&nbsp' + feature.properties?.Flaeche + '</p>')
+          }
+          //bind ags
+          if (feature.properties && feature.properties.zone_id) {
+            layer.bindPopup('<h3>City Name:&nbsp' + feature.properties?.georef_description_de + '</h3><p><b>Zone Id:</b>&nbsp' + feature.properties?.zone_id + '<br/><b>Population:</b>&nbsp' + feature.properties?.population + '<br/><b>Shape Version:</b>&nbsp' + feature.properties?.shape_version + '<br/>' + '<b>Area (Sq. Km):</b>&nbsp' + feature.properties?.area_sqkm + '</p>')
+          }
+        },
+        setSelectedCity: function (city) {
+          this.selectedCity = city;
+        },
+        setView: function () {
+          this.map.setView(this.cities[this.selectedCity], 10);
+          //set geojson layer
+          if (this.isTCids) {
+            this.geojsonLayer.addData(window[this.selectedCity]);
+            this.setDynamicFontSize(this);
+          } else if (this.isAGS5) {
+            this.geojsonLayer.addData(window['ags5_' + this.selectedCity]);
+          } else if (this.isAGS8) {
+            this.geojsonLayer.addData(window['ags8_' + this.selectedCity]);
+          }
+        },
+        addLayer: function () {
+          return L.geoJSON().addTo(this.map)
+        },
+        clearLayer: function () {
+          this.geojsonLayer.clearLayers();
+        },
+        setDynamicFontSize: function () {
+          var currentZoom = this.map.getZoom();
+
+          this.geojsonLayer.eachLayer(function (layer) {
+            var flaeche = layer.feature.properties.Flaeche;
+            var fontSize = 0
+
+            if (currentZoom >= 13 && (flaeche == '0.25' || flaeche == "1") ||
+              currentZoom >= 11 && layer.feature.properties.Flaeche == '4' ||
+              currentZoom >= 10 && layer.feature.properties.Flaeche == '16') {
+              fontSize = 10;
+            }
+
+            if (currentZoom > 13) {
+              fontSize = 25;
+            }
+
+            if (layer.getTooltip()) {
+              layer.getTooltip().getElement().style.fontSize = fontSize + 'px';
+            }
+          });
+        }
+      }
+    };
+
+
+    //Add event handler
+    window.addEventListener('load', function () {
+      //create map Instance
+      var mapInstance = new loadMap();
+      mapInstance.initMap();
+
+      //search map
+      var searchInput = document.querySelector('#searchInput');
+      var selectedFeatureLayer = mapInstance.addLayer();
+      var clearSearch = document.querySelector('#clearSearch');
+      var searchTowerCell = document.querySelector('#searchTowerCell');
+      var errorMessage = document.querySelector('#error-msg');
+      var errorMessageText = document.querySelector('#error-msg .text');
+
+      // function to reset style
+      function resetStyle() {
+        errorMessage.style.display = 'none';
+        mapInstance.geojsonLayer.eachLayer(function (layer) {
+          mapInstance.geojsonLayer.resetStyle(layer);
+        });
+        selectedFeatureLayer.clearLayers();
+      }
+
+      // Add an event listener to the input element to trigger the search
+      searchInput.addEventListener('keydown', function (e) {
+        var searchTerm = searchInput.value.toLowerCase();
+        // return
+        if (searchTerm.length === 0) {
+          resetStyle();
+          return;
+        }
+
+        if (e.keyCode == 13) {
+          //convert user input into unique element id's Array
+          var towerIds = searchTerm.split(',').filter(function (id, index, arr) {
+            return arr.indexOf(id) === index
+          });
+          var selectedIds = [];
+          resetStyle();
+          // Filter and style the features that match the search term
+          mapInstance.geojsonLayer.eachLayer(function (layer) {
+            towerIds.forEach(function (towerId) {
+              if (layer
+                && layer.feature
+                && layer.feature.properties
+                && layer.feature.properties.id
+                && layer.feature.properties.id.trim().toLowerCase() === towerId.trim().toLowerCase()) {
+                  
+                selectedFeatureLayer.addData(layer.toGeoJSON());
+                selectedFeatureLayer.setStyle({
+                  "fillColor": 'red',
+                  "fillOpacity": 0.7,
+                  "color": "rgba(226,0,116,1.0)",
+                  "weight": 2,
+                });
+                //set zoom
+                mapInstance.map.fitBounds(
+                  selectedFeatureLayer.getBounds(),
+                  { maxZoom: 11 }
+                );
+
+                selectedIds.push(towerId)
+              }
+            });
+          });
+          // Bind a popup to the selectedFeatureLayer with information
+          selectedFeatureLayer.eachLayer(function (selectedLayer) {
+            var towerId = selectedLayer.feature.properties?.id;
+            var city = selectedLayer.feature.properties?._Gemeinden;
+            var area = selectedLayer.feature.properties?.Flaeche;
+
+            selectedLayer
+              .bindPopup('<h3>Traffice Cell:&nbsp' + towerId + '</h3><p><b>City:</b>&nbsp' + city + '<br/><b>Area (Sq. Km):</b>&nbsp' + area + '</p>')
+          });
+
+          //Check for ids those are not in geojson
+          var ids = towerIds.filter(function (id) {
+            return !selectedIds.includes(id)
+          })
+
+          if (ids.length > 0) {
+            if (ids.length == 1) {
+              errorMessageText.innerHTML = '*traffic cell ' + ids[0] + ' not found';
+            } else {
+              errorMessageText.innerHTML = '*traffic cells ' + ids.join(',') + ' not found';
+            }
+            errorMessage.style.display = 'flex';
+          }
+        }
+      });
+
+      //Add clear & search handler
+      ['keyup', 'click'].forEach(function (e) {
+        clearSearch.addEventListener(e, clearHandler);
+        searchTowerCell.addEventListener(e, searchHandler);
+      })
+
+      function clearHandler(e) {
+        if (e.keyCode === 13 || e.type === 'click') {
+          searchInput.value = "";
+          searchInput.focus();
+          mapInstance.map.setZoom(11);
+          resetStyle();
+        }
+      }
+
+      function searchHandler(e) {
+        if (e.keyCode === 13 || e.type === 'click') {
+          var event = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            which: 13,
+            keyCode: 13,
+          });
+          searchInput.dispatchEvent(event)
+        }
+      }
+
+      // select resolution options
+      var customResolutionSelect = document.querySelector(".resolution-select");
+      var selectSelectedResolution = customResolutionSelect.querySelector(".select-selected-resolution");
+      var selectItemsResolution = customResolutionSelect.querySelector(".select-items");
+
+      selectSelectedResolution.addEventListener("click", function (e) {
+        e.stopPropagation();
+        closeAllResolutionSelect();
+        selectItemsResolution.classList.toggle("select-hide");
+        this.classList.toggle("select-arrow-active");
+      });
+
+      selectItemsResolution.addEventListener("click", function (e) {
+        e.stopPropagation();
+        selectSelectedResolution.textContent = e.target.textContent;
+        var resolution = e.target?.dataset?.value || 'tcid';
+        if (resolution === 'tcid') {
+          mapInstance.isAGS5 = false;
+          mapInstance.isAGS8 = false;
+          mapInstance.isTCids = true;
+        } else if (resolution === 'ags5') {
+          mapInstance.isAGS8 = false;
+          mapInstance.isTCids = false;
+          mapInstance.isAGS5 = true;
+        } else {
+          mapInstance.isTCids = false;
+          mapInstance.isAGS5 = false;
+          mapInstance.isAGS8 = true;
+        }
+        mapInstance.clearLayer();
+        mapInstance.setView();
+        searchInput.value = "";
+        resetStyle();
+        selectItemsResolution.classList.add("select-hide");
+        selectSelectedResolution.classList.remove("select-arrow-active");
+      });
+
+      function closeAllResolutionSelect(elmnt) {
+        for (var i = 0; i < selectItems.length; i++) {
+          if (elmnt != selectSelectedCity) {
+            selectItems[i].classList.add("select-hide");
+          }
+        }
+      }
+
+      document.addEventListener("click", closeAllResolutionSelect);
+      selectSelectedResolution.textContent = "TCID";
+
+
+      // select cities
+      var customCitySelect = document.querySelector(".custom-select-city");
+      var selectSelectedCity = customCitySelect.querySelector(".select-selected-city");
+      var selectItems = customCitySelect.querySelector(".select-items");
+
+      selectSelectedCity.addEventListener("click", function (e) {
+        e.stopPropagation();
+        closeAllSelect();
+        selectItems.classList.toggle("select-hide");
+        this.classList.toggle("select-arrow-active");
+      });
+
+      selectItems.addEventListener("click", function (e) {
+        e.stopPropagation();
+        selectSelectedCity.textContent = e.target.textContent;
+        var city = e.target?.dataset?.value || 'berlin';
+        mapInstance.setSelectedCity(city);
+        mapInstance.clearLayer();
+        mapInstance.setView();
+        searchInput.value = "";
+        resetStyle();
+        selectItems.classList.add("select-hide");
+        selectSelectedCity.classList.remove("select-arrow-active");
+      });
+
+      function closeAllSelect(elmnt) {
+        for (var i = 0; i < selectItems.length; i++) {
+          if (elmnt != selectSelectedCity) {
+            selectItems[i].classList.add("select-hide");
+          }
+        }
+      }
+
+      document.addEventListener("click", closeAllSelect);
+      selectSelectedCity.textContent = "Berlin";
+    })
+  </script>
+  <style>
+    .leaflet-tooltip {
+      position: absolute;
+      padding: 6px;
+      background-color: transparent !important;
+      border: none !important;
+      color: #222;
+      white-space: nowrap;
+      box-shadow: none !important;
+      font-weight: 400 !important;
+    }
+
+    .search-container {
+      position: fixed;
+      right: 20px;
+      top: 20px;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #searchInput {
+      z-index: 999;
+      height: 25px;
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
+      padding: 3px 8px;
+      border: 2px solid #ccc;
+      padding-right: 60px;
+    }
+
+    #searchInput:focus {
+      border: 1px solid rgba(226, 0, 116, 1.0);
+    }
+
+    #searchInput:focus-visible {
+      outline: none;
+    }
+
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-wrapper .icon-wrapper {
+      position: absolute;
+      right: 0;
+      height: 100%;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(226, 0, 116, 1.0);
+      color: #fff;
+      width: 55px;
+      border-top-right-radius: 4px;
+      border-bottom-right-radius: 4px;
+    }
+
+    .icon-wrapper .fa {
+      z-index: 999;
+      padding: 0px 4px;
+      cursor: pointer;
+    }
+
+    #error-msg {
+      position: absolute;
+      background: #ffff;
+      width: 100%;
+      border: 1px solid #cccc;
+      border-radius: 4px;
+      display: none;
+      top: 34px;
+      font-size: 14px;
+      align-items: center;
+      z-index: 999;
+    }
+
+    #error-msg .text {
+      padding: 4px 8px;
+      color: red;
+      display: inline-block;
+      font-weight: 600;
+    }
+
+    .custom-tooltip-class {
+      text-align: center;
+    }
+
+    /* Style for the custom select */
+    .custom-select-city {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      height: 34px;
+      margin-top: 10px;
+    }
+
+    .select-selected-city {
+      background-color: #ffffff;
+      padding: 8px 10px;
+      border: 1px solid #cccc;
+      border-radius: 4px;
+    }
+
+    .select-items {
+      position: absolute;
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      max-height: 145px;
+      overflow-y: auto;
+      width: 100%;
+    }
+
+    .resolution-select .select-items {
+      z-index: 999;
+    }
+
+    .select-hide {
+      display: none;
+    }
+
+    .select-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    .select-item:hover {
+      background-color: #d3d3d3;
+    }
+
+    .fa-chevron-down {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      pointer-events: none;
+    }
+
+    .select-arrow-active+.fa-chevron-down {
+      transition: transform 0.2s;
+      transform: rotate(180deg);
+    }
+
+    /* resolution dropdown */
+    .resolution-select {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      height: 34px;
+      margin-top: 10px;
+    }
+
+    .select-selected-resolution {
+      background-color: #ffffff;
+      padding: 8px 10px;
+      border: 1px solid #cccc;
+      border-radius: 4px;
+    }
+  </style>
+</body>
+
+</html>
